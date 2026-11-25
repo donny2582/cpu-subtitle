@@ -1,0 +1,8 @@
+# 本機 CPU 語音輸入（不需要 GPU、不需要網路與 API 金鑰；只有第一次下載模型需要網路）
+faster-whisper>=1.1.0,<2      # 內含 CTranslate2（CPU INT8 推論）
+av>=11,<17                    # faster-whisper 1.2.x 與 PyAV 17+ 不相容（讀音訊檔會失敗）
+PyAudioWPatch>=0.2.12         # 麥克風 + WASAPI loopback（Windows）
+webrtcvad-wheels>=2.0.14      # VAD：偵測停頓
+soxr>=0.5                     # 重新取樣到 16 kHz
+numpy>=1.26
+opencc-python-reimplemented>=0.1.7  # 中文結果轉台灣繁體（可不裝）

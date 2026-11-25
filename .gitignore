@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+models/
+transcripts/
+config.toml
+*.log
+logs/
+build/
+release/
+.pytest_cache/
+*.pyc

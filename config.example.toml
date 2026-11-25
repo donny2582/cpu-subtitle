@@ -1,0 +1,84 @@
+# ===========================================================================
+# 即時字幕（本機 CPU）設定檔
+# 第一次執行會自動複製成 config.toml，請修改 config.toml。
+# 沒寫到的項目使用程式預設值。
+# ===========================================================================
+
+[audio]
+source = "loopback"        # loopback = 系統聲音（會議、影片）；mic = 麥克風（現場）
+                           # both = 兩者混音（自己＋對方都辨識；請戴耳機，否則同一句會被收兩次）
+mic_device_index = -1      # -1 = 系統預設麥克風；用 scripts\run.ps1 --list-devices 查編號
+loopback_device_index = -1 # -1 = 系統預設喇叭／耳機
+
+[vad]
+engine = "webrtc"          # webrtc（建議）/ energy（音量門檻）
+aggressiveness = 2         # 0~3，環境吵雜時調高
+end_silence_ms = 500       # 停頓多久算一句講完 → 整句跳出；想更快可 350~400，句子常被切碎就調到 700~800
+min_speech_ms = 250        # 人聲短於此（咳嗽、敲鍵盤）直接丟掉
+pre_roll_ms = 300          # 句首往前多保留的音訊，避免吃掉第一個字
+# 講者一直講不停頓時主動斷句，不會一直累積成一大句：
+soft_cut_s = 4.0           # 一句超過 4 秒後，短短換氣（soft_end_silence_ms）就斷句
+soft_end_silence_ms = 200
+max_utterance_s = 8.0      # 還是沒停頓：在最近 1.5 秒內最安靜的地方切開（不會把字切斷，上限 28）
+idle_flush_s = 0.6         # loopback 模式：聲音中斷多久就當作句子結束
+
+[asr]
+# small          ：約 470 MB；i7-1255U 筆電實測一般句子 0.5~0.9 秒辨識完（建議先用這個）
+# large-v3-turbo ：約 1.6 GB，準確度較好，但編碼器大很多，CPU 上明顯較慢（可用 --benchmark 實測）
+# 也可以填 base（更快、較不準）、medium、large-v3，或本機 CTranslate2 模型資料夾路徑
+model = "small"
+compute_type = "int8"      # CPU 用 int8 量化；記憶體夠且想要極小的準確度提升可改 "int8_float32"
+cpu_threads = 0            # 0 = 自動（4）；Intel 12 代以後的大小核筆電請跑 run.ps1 --benchmark 找最佳值
+beam_size = 1              # 1 = 最快；5 = 略準，但長句會慢 30~50%
+dynamic_window = true      # 只編碼實際長度，不補滿 30 秒（快 3~6 倍，等同 whisper.cpp 的 -ac）；false = 原本做法
+window_padding_s = 2.0     # 動態視窗在句尾多補幾秒
+min_window_s = 5.0         # 動態視窗最短幾秒（太短時短句容易重複，例如「好的好的好的」）
+
+# 講者可能會講的語言：zh（中）/ en（英）/ ja（日）/ ko（韓）
+#   只寫一種       → 固定用那個語言辨識（最快、最準）
+#   寫多種         → 每句只在這些語言之間自動判斷
+#   中文、中英夾雜 → 直接顯示；英／日／韓 → 翻成中文，並以小字附上原文
+languages = ["zh"]
+mixed_zh_prob = 0.15       # 判成英文但中文可能性 ≥ 這個值 → 當作中英夾雜，直接顯示（不翻譯）
+sticky_language_prob = 0.5 # 短句（"OK"、"はい"）偵測信心低於此值時沿用上一句語言
+initial_prompt = ""        # 提示詞：放專有名詞可提高辨識率，例如 "Kubernetes, PostgreSQL, 區間測速"
+zh_convert = "s2twp"       # 中文轉台灣繁體用語；"" = 不轉
+model_dir = "models"
+no_speech_threshold = 0.6
+log_prob_threshold = -1.0
+compression_ratio_threshold = 2.4
+
+[translate]
+# 英／日／韓翻成中文用的本機翻譯模型（[asr] languages 有外語時才會載入）
+model = "JustFrederik/nllb-200-distilled-600M-ct2-int8"  # 快（約 0.8 秒／句）
+                           # 較準：OpenNMT/nllb-200-distilled-1.3B-ct2-int8（約 1.4 秒／句）
+target = "zh-tw"           # zh-tw = 台灣繁體用語（建議）；zh-hant = 直接輸出繁體；zh-cn = 簡體
+beam_size = 2              # 翻譯不要設 1：日韓翻譯會明顯出錯
+cpu_threads = 0            # 0 = 和語音辨識相同
+
+[output]
+transcript_dir = "transcripts"  # 逐字稿資料夾；"" = 不存
+save_audio = false         # true = 同時把聽到的聲音存成 WAV（16 kHz 單聲道，約每小時 115 MB；暫停時不錄）
+
+[overlay]
+# 大字幕視窗（控制視窗模式才有；在「字幕外觀」分頁調整後按「儲存設定」會寫回這裡）
+enabled = true             # 執行時顯示大字幕
+font_family = "Microsoft JhengHei UI"
+font_size = 32
+bold = true
+text_color = "#FFFFFF"     # 預設灰底白字
+bg_color = "#3C3C3C"       # 白底黑框：text "#000000"、bg "#FFFFFF"、border "#000000"、border_width 4
+border_color = "#3C3C3C"
+border_width = 0           # 外框粗細（像素），0 = 無框
+opacity = 0.70             # 整個字幕視窗的不透明度 0.3~1.0（越小越透明）
+corner_radius = 18         # 圓角半徑（像素），0 = 直角
+max_lines = 2              # 同時顯示幾句
+width_ratio = 0.8          # 字幕寬度佔螢幕比例
+bottom_margin = 80         # 距離螢幕底部（像素）
+clear_after_s = 10.0       # 幾秒沒有新句子就清空；0 = 不清空
+show_language = false      # 每句前面加 [英]/[日]/[韓]/[中]
+click_through = false      # 滑鼠點擊穿透字幕（開啟後不能拖曳，請從控制視窗關閉）
+
+[hotkey]
+toggle = "ctrl+alt+f9"  # 暫停／繼續
+quit = "ctrl+alt+q"        # 結束程式
